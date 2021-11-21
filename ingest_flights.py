@@ -11,11 +11,6 @@ from urllib.request import urlopen
 from google.cloud import storage
 from google.cloud.storage import Blob
 
-ctx_no_secure = ssl.create_default_context()
-ctx_no_secure.set_ciphers('HIGH:!DH:!aNULL')
-ctx_no_secure.check_hostname = False
-ctx_no_secure.verify_mode = ssl.CERT_NONE
-
 def download(year, month, destdir):
     """
     Downloads on-time performance data and return local filename
@@ -24,9 +19,14 @@ def download(year, month, destdir):
     """
     logging.info('Requesting data for %s-%s-*', year, month)
 
+    ctx_no_secure = ssl.create_default_context()
+    ctx_no_secure.set_ciphers('HIGH:!DH:!aNULL')
+    ctx_no_secure.check_hostname = False
+    ctx_no_secure.verify_mode = ssl.CERT_NONE
+
     url = f'https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_{year}_{month}.zip'
     filename = os.path.join(destdir, f'{year}_{month}.zip')
-    with open(filename, "wb") as file, urlopen(url) as response:
+    with open(filename, "wb") as file, urlopen(url, context=ctx_no_secure) as response:
         file.write(response.read())
     logging.debug('%s saved', filename)
     return filename
