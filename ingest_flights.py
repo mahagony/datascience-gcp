@@ -7,6 +7,7 @@ import zipfile
 import gzip
 import shutil
 import tempfile
+import datetime
 
 from urllib.request import urlopen
 from google.cloud import storage
@@ -76,13 +77,34 @@ def ingest(year, month, bucket):
         logging.debug('Cleaning up by removing %s', tempdir)
         shutil.rmtree(tempdir)
 
+def next_month(bucketname):
+    """
+    Finds which months are on GCS, and return next year, month to download
+    """
+    client = storage.Client()
+    bucket = client.get_bucket(bucketname)
+    blobs = list(bucket.list_blobs(prefix='flights/raw'))
+    files = [blob.name for blob in blobs if blob.name.endswith('.csv.gz')]
+    lastfile = os.path.basename(files[-1])
+    logging.debug('The latest file on GCS is %s', lastfile)
+    return compute_next_month(int(lastfile[:4]), int(lastfile[4:6]))
+
+def compute_next_month(year, month):
+    """
+    Finds next month.
+    """
+    date = datetime.datetime(year, month, 15)
+    date = date + datetime.timedelta(days=30)
+    logging.debug('The next month is %s', date)
+    return date.year, date.month
+
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='ingest filghts data from BTS website to Google Cloud Storage')
     parser.add_argument('--bucket', help='GCS bucket to upload data to', required=True)
-    parser.add_argument('--year', help='Example: 2015.', required=True)
-    parser.add_argument('--month', help='Specify 1 for January.', required=True)
+    parser.add_argument('--year', help='Example: 2015.')
+    parser.add_argument('--month', help='Specify 1 for January.')
     parser.add_argument('--debug', dest='debug', action='store_true', help='Specify if you want debug messages')
 
     args = parser.parse_args()
@@ -90,8 +112,11 @@ if __name__ == '__main__':
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
     else:
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-    year_ = int(args.year)
-    month_ = int(args.month)
+    if args.year is None or args.month is None:
+        year_, month_ = next_month(args.bucket)
+    else:
+        year_ = int(args.year)
+        month_ = int(args.month)
     logging.debug('Ingesting year=%s, month=%s', year_, month_)
     gcs = ingest(year_, month_, args.bucket)
     logging.info('Success ... ingested to %s', gcs)
