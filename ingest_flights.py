@@ -6,6 +6,7 @@ import ssl
 import zipfile
 import gzip
 import shutil
+import tempfile
 
 from urllib.request import urlopen
 from google.cloud import storage
@@ -59,3 +60,18 @@ def upload(file, bucketname, blobname):
     gcslocation = f'gs://{bucketname}/{blobname}'
     logging.info('Uploaded %s ...', gcslocation)
     return gcslocation
+
+def ingest(year, month, bucket):
+    """
+    Ingests flights data from BTS website to Google Cloud Storage
+    """
+    try:
+        tempdir = tempfile.mkdtemp(prefix='ingest_flights')
+        zip_file = download(year, month, tempdir)
+        bts_csv = zip_to_csv(zip_file, tempdir)
+        gcsloc = f'flights/raw/{year:d}{month:02d}.csv.gz'
+        gcsloc = upload(bts_csv, bucket, gcsloc)
+        return gcsloc
+    finally:
+        logging.debug('Cleaning up by removing %s', tempdir)
+        shutil.rmtree(tempdir)
