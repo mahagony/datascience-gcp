@@ -75,3 +75,23 @@ def ingest(year, month, bucket):
     finally:
         logging.debug('Cleaning up by removing %s', tempdir)
         shutil.rmtree(tempdir)
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='ingest filghts data from BTS website to Google Cloud Storage')
+    parser.add_argument('--bucket', help='GCS bucket to upload data to', required=True)
+    parser.add_argument('--year', help='Example: 2015.', required=True)
+    parser.add_argument('--month', help='Specify 1 for January.', required=True)
+    parser.add_argument('--debug', dest='debug', action='store_true', help='Specify if you want debug messages')
+
+    args = parser.parse_args()
+    if args.debug:
+        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+    else:
+        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
+    year_ = int(args.year)
+    month_ = int(args.month)
+    logging.debug('Ingesting year=%s, month=%s', year_, month_)
+    gcs = ingest(year_, month_, args.bucket)
+    logging.info('Success ... ingested to %s', gcs)
